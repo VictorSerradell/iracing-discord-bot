@@ -4,15 +4,13 @@ from discord.ext import commands
 import random
 from dotenv import load_dotenv
 
-# Cargar variables de entorno
 load_dotenv()
 
-# Configuración
 TOKEN = os.getenv("DISCORD_TOKEN")
 PREFIX = os.getenv("PREFIX", "!")
 
 if TOKEN is None:
-    raise ValueError("DISCORD_TOKEN no está definida. Agrégala en Railway o .env.")
+    raise ValueError("DISCORD_TOKEN no definida. Agrégala en Railway o .env.")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -25,7 +23,6 @@ async def on_ready():
     print(f"Bot conectado como {bot.user}")
     print("¡Listo para roastear y divertirnos mientras esperamos iRacing! 🔥")
 
-# Comandos básicos de prueba
 @bot.command(name="ping")
 async def ping(ctx):
     await ctx.send("Pong! Estoy vivo y con ganas de quemar a alguien 😈")
@@ -34,27 +31,25 @@ async def ping(ctx):
 async def status(ctx):
     await ctx.send(f"Bot online ✅ | Prefijo: {PREFIX} | API iRacing: en espera de credenciales OAuth")
 
-@bot.command(name="help")
-async def help_command(ctx):
+@bot.command(name="ayuda")  # Cambiado de "help" para evitar conflicto
+async def ayuda(ctx):
     embed = discord.Embed(title="Comandos disponibles 🔥", color=0xff4500)
-    embed.add_field(name=f"{PREFIX}ping", value="Comprueba que estoy despierto", inline=False)
+    embed.add_field(name=f"{PREFIX}ping", value="Comprueba que estoy vivo", inline=False)
     embed.add_field(name=f"{PREFIX}status", value="Estado del bot", inline=False)
-    embed.add_field(name=f"{PREFIX}help", value="Este mensaje", inline=False)
+    embed.add_field(name=f"{PREFIX}ayuda", value="Este mensaje", inline=False)
     embed.add_field(name=f"{PREFIX}meme", value="Meme aleatorio de simracing", inline=False)
-    embed.add_field(name=f"{PREFIX}roast [@usuario]", value="Quema a alguien (o a ti mismo)", inline=False)
-    embed.add_field(name=f"{PREFIX}roast [@usuario] hard", value="Versión sin piedad", inline=False)
+    embed.add_field(name=f"{PREFIX}roast [@usuario] [soft/medium/hard]", value="Quema a alguien (o a ti mismo)", inline=False)
     embed.add_field(name=f"{PREFIX}motivation", value="Frase motivacional... o algo así", inline=False)
     embed.add_field(name=f"{PREFIX}lap", value="Tu vuelta rápida imaginaria", inline=False)
     embed.add_field(name=f"{PREFIX}crash", value="Drama de carrera instantáneo", inline=False)
     await ctx.send(embed=embed)
 
-# Memes aleatorios
+# Memes aleatorios (agrega tus links favoritos)
 memes = [
     "https://i.imgur.com/8m3jK.gif",  # crash clásico
     "https://tenor.com/view/sim-racing-crash-gif-17894567",
-    "https://i.imgur.com/Qwerty.gif",  # agrega links reales de memes simracing
-    "https://i.imgur.com/abc123.jpg",  # placeholder - sustituye por links reales
-    "https://i.imgur.com/def456.png"
+    "https://i.imgur.com/Qwerty.gif",  # cambia por links reales
+    "https://i.imgur.com/abc123.jpg"
 ]
 
 @bot.command(name="meme")
@@ -62,7 +57,7 @@ async def meme(ctx):
     meme_url = random.choice(memes)
     await ctx.send(f"Dosis de simracing humor: {meme_url}\n(¡Cuidado con los spoilers de tu próxima carrera!)")
 
-# Roast mejorado
+# Roasts mejorados
 roasts_soft = [
     "Tu iRating sube más despacio que un tractor en Monza...",
     "Conduces como si el 'brake' fuera un mito urbano",
@@ -100,38 +95,33 @@ async def roast(ctx, member: discord.Member = None, intensity: str = "medium"):
     elif intensity == "soft":
         roast_text = random.choice(roasts_soft)
         fire = "🔥"
-    else:  # medium por defecto
-        all_roasts = roasts_soft + roasts_hard[:8]  # mezcla equilibrada
+    else:
+        all_roasts = roasts_soft + roasts_hard[:8]
         roast_text = random.choice(all_roasts)
         fire = "🔥🔥"
 
     await ctx.send(f"{member.mention} {roast_text}\n{fire}")
 
-# Motivación simulada
-motivaciones = [
-    "¡Sigue empujando! El pódium está a solo 3 restarts de distancia...",
-    "El que no choca, no avanza... o eso dicen los que chocan mucho",
-    "Tu próximo incident es solo práctica para el siguiente",
-    "El wall ride es una técnica válida... en mi mundo",
-    "Recuerda: el que llega último, llega con más historia que contar"
-]
-
 @bot.command(name="motivation")
 async def motivation(ctx):
+    motivaciones = [
+        "¡Sigue empujando! El pódium está a solo 3 restarts de distancia...",
+        "El que no choca, no avanza... o eso dicen los que chocan mucho",
+        "Tu próximo incident es solo práctica para el siguiente",
+        "El wall ride es una técnica válida... en mi mundo",
+        "Recuerda: el que llega último, llega con más historia que contar"
+    ]
     frase = random.choice(motivaciones)
     await ctx.send(f"💪 {frase}\n¡A darle, crack! (pero no al muro, eh)")
 
-# Vuelta rápida imaginaria
 @bot.command(name="lap")
 async def lap(ctx):
     tiempo = random.uniform(1.15, 3.59)
     await ctx.send(f"¡Vuelta rápida imaginaria! ⏱️ {tiempo:.3f} segundos... en mis sueños, claro 🚀")
 
-# Crash dramático
 @bot.command(name="crash")
 async def crash(ctx):
     await ctx.send("💥 **¡BOOM!** Acabo de besar el muro en la curva 1... otra vez 😭\n"
                    "Mi coche ahora es arte abstracto en la grava. ¿Quién me recoge?")
 
-# Iniciar bot
 bot.run(TOKEN)
