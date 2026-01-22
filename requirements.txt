@@ -66,8 +66,6 @@ humanfriendly==10.0
 idna==3.7
 ifaddr==0.2.0
 ImageIO==2.37.2
-inference==0.63.3
-inference-exp==0.17.3
 iniconfig==2.3.0
 iracingdataapi==1.4.2
 isodate==0.7.2
