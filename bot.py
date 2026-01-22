@@ -47,6 +47,16 @@ async def on_ready():
         print(f"Error al conectar a iRacing: {e}")
         print("Causas comunes: credenciales inválidas, 2FA activado, legacy auth no habilitado o cuenta no aprobada para Password Limited.")
 
+@bot.command(name="help")
+async def help_command(ctx):
+    embed = discord.Embed(title="Comandos disponibles", color=0x00ff00)
+    embed.add_field(name=f"{PREFIX}ping", value="Comprueba si estoy vivo", inline=False)
+    embed.add_field(name=f"{PREFIX}status", value="Estado de conexión a iRacing", inline=False)
+    embed.add_field(name=f"{PREFIX}mystats", value="Tus stats (cuando funcione la API)", inline=False)
+    embed.add_field(name=f"{PREFIX}profile <cust_id>", value="Stats de otro piloto", inline=False)
+    embed.add_field(name="Próximamente", value="Semana actual, series, alertas...", inline=False)
+    await ctx.send(embed=embed)
+
 @bot.command(name="ping")
 async def ping(ctx):
     await ctx.send("Pong! Bot online.")
