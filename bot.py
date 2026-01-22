@@ -32,8 +32,7 @@ async def on_ready():
         ir_client = irDataClient(
             username=IR_USERNAME,
             password=IR_PASSWORD,
-            use_pydantic=True,git add bot.py
-
+            use_pydantic=True,
             # Si ya tienes access_token guardado, puedes pasarlo aquí en vez de user/pass
             # oauth_access_token="..."
         )
