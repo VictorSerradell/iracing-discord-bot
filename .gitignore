@@ -1,0 +1,15 @@
+# Ignorar el archivo de secrets
+.env
+
+# Ignorar carpetas de entornos virtuales (si usas venv)
+venv/
+.env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Opcional: ignorar logs o archivos temporales
+*.log
+.DS_Store   # si estás en Mac
+Thumbs.db   # si estás en Windows
