@@ -3,11 +3,14 @@ import discord
 from discord.ext import commands
 import random
 from dotenv import load_dotenv
+from iracingdataapi.client import irDataClient
 
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 PREFIX = os.getenv("PREFIX", "!")
+IR_USERNAME = os.getenv("IRACING_USERNAME")
+IR_PASSWORD = os.getenv("IRACING_PASSWORD")
 
 if TOKEN is None:
     raise ValueError("DISCORD_TOKEN no definida. Agrégala en Railway o .env.")
@@ -18,110 +21,163 @@ intents.members = True
 
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
+ir_client = None
+
 @bot.event
 async def on_ready():
+    global ir_client
     print(f"Bot conectado como {bot.user}")
-    print("¡Listo para roastear y divertirnos mientras esperamos iRacing! 🔥")
+    print("¡Listo para roastear y (quizá) mostrar stats de iRacing! 🔥")
 
+    try:
+        ir_client = irDataClient(
+            username=IR_USERNAME,
+            password=IR_PASSWORD,
+            use_pydantic=False  # Menos estricto para ver respuestas crudas
+        )
+        print("Conectado a iRacing Data API ✓")
+
+        # Test rápido de conexión
+        try:
+            cars = ir_client.get_cars()
+            print(f"Test OK: {len(cars)} coches cargados")
+        except Exception as test_e:
+            print(f"Test falló: {test_e}")
+            try:
+                if hasattr(ir_client, 'last_response') and ir_client.last_response:
+                    print("Status code:", ir_client.last_response.status_code)
+                    print("Raw response (primeros 500 chars):", ir_client.last_response.text[:500])
+            except:
+                print("No se pudo obtener respuesta raw")
+    except Exception as e:
+        print(f"Error al conectar a iRacing: {e}")
+
+# Comandos divertidos (mantenerlos)
 @bot.command(name="ping")
 async def ping(ctx):
     await ctx.send("Pong! Estoy vivo y con ganas de quemar a alguien 😈")
 
 @bot.command(name="status")
 async def status(ctx):
-    await ctx.send(f"Bot online ✅ | Prefijo: {PREFIX} | API iRacing: en espera de credenciales OAuth")
+    api_status = "✅ Conectado" if ir_client else "⚠️ Sin conexión a iRacing"
+    await ctx.send(f"Bot online | Prefijo: {PREFIX} | iRacing API: {api_status}")
 
-@bot.command(name="ayuda")  # Cambiado de "help" para evitar conflicto
+@bot.command(name="ayuda")
 async def ayuda(ctx):
     embed = discord.Embed(title="Comandos disponibles 🔥", color=0xff4500)
     embed.add_field(name=f"{PREFIX}ping", value="Comprueba que estoy vivo", inline=False)
     embed.add_field(name=f"{PREFIX}status", value="Estado del bot", inline=False)
     embed.add_field(name=f"{PREFIX}ayuda", value="Este mensaje", inline=False)
-    embed.add_field(name=f"{PREFIX}meme", value="Meme aleatorio de simracing", inline=False)
-    embed.add_field(name=f"{PREFIX}roast [@usuario] [soft/medium/hard]", value="Quema a alguien (o a ti mismo)", inline=False)
-    embed.add_field(name=f"{PREFIX}motivation", value="Frase motivacional... o algo así", inline=False)
-    embed.add_field(name=f"{PREFIX}lap", value="Tu vuelta rápida imaginaria", inline=False)
-    embed.add_field(name=f"{PREFIX}crash", value="Drama de carrera instantáneo", inline=False)
+    embed.add_field(name=f"{PREFIX}meme", value="Meme aleatorio", inline=False)
+    embed.add_field(name=f"{PREFIX}roast [@usuario] [soft/medium/hard]", value="Quema a alguien", inline=False)
+    embed.add_field(name=f"{PREFIX}motivation", value="Frase motivacional", inline=False)
+    embed.add_field(name=f"{PREFIX}lap", value="Vuelta rápida imaginaria", inline=False)
+    embed.add_field(name=f"{PREFIX}crash", value="Drama de carrera", inline=False)
+    embed.add_field(name=f"{PREFIX}mystats", value="Tus stats de iRacing (si funciona)", inline=False)
+    embed.add_field(name=f"{PREFIX}profile <cust_id>", value="Stats de otro piloto", inline=False)
     await ctx.send(embed=embed)
 
-# Memes aleatorios (agrega tus links favoritos)
+# Memes (agrega links reales cuando puedas)
 memes = [
-    "https://i.imgur.com/8m3jK.gif",  # crash clásico
-    "https://tenor.com/view/sim-racing-crash-gif-17894567",
-    "https://i.imgur.com/Qwerty.gif",  # cambia por links reales
-    "https://i.imgur.com/abc123.jpg"
+    "https://i.imgur.com/8m3jK.gif",
+    "https://tenor.com/view/sim-racing-crash-gif-17894567"
 ]
 
 @bot.command(name="meme")
 async def meme(ctx):
     meme_url = random.choice(memes)
-    await ctx.send(f"Dosis de simracing humor: {meme_url}\n(¡Cuidado con los spoilers de tu próxima carrera!)")
+    await ctx.send(f"Simracing humor: {meme_url}")
 
-# Roasts mejorados
-roasts_soft = [
-    "Tu iRating sube más despacio que un tractor en Monza...",
-    "Conduces como si el 'brake' fuera un mito urbano",
-    "Tu SR es alto porque corres en lluvia... y aun así chocas 😂",
-    "Eres tan lento que el safety car te pide que aceleres",
-    "Tu línea parece dibujada por un niño con los ojos vendados"
-]
-
-roasts_hard = [
+# Roast (versión anterior, puedes expandir)
+roasts = [
     "Tu iRating es tan bajo que los AI rookies te ven venir y se apartan por lástima...",
     "Conduces como si el volante fuera un joystick de PS1 sin vibración",
-    "Tienes más incidents que un político con promesas incumplidas",
-    "Tu ghost car en replay parece un borracho en patines eléctricos",
-    "Eres el motivo por el que existe el black flag... y el wall ride como deporte olímpico",
-    "Tu qualifying es tan lento que clasificas en la vuelta de calentamiento del día siguiente",
-    "Corres tan sucio que los safety cars se activan solos cuando apareces en el grid",
-    "Tu setup es tan malo que hasta el muro te dice 'bro, para ya que me duele'",
-    "Tus restarts son tan malos que hasta el caution flag se ríe de ti en voz alta",
-    "Eres tan lento que el pace car te adelanta y te pide autógrafo"
+    "Tienes más incidents que victorias... y las victorias son en practice solo 😭"
 ]
 
 @bot.command(name="roast")
-async def roast(ctx, member: discord.Member = None, intensity: str = "medium"):
+async def roast(ctx, member: discord.Member = None):
     if member is None:
         member = ctx.author
-
-    if member.bot:
-        await ctx.send("No roasteo bots, que ya tenemos suficiente con los AI de iRacing 😤")
-        return
-
-    intensity = intensity.lower()
-    if intensity == "hard":
-        roast_text = random.choice(roasts_hard)
-        fire = "🔥🔥🔥🔥"
-    elif intensity == "soft":
-        roast_text = random.choice(roasts_soft)
-        fire = "🔥"
-    else:
-        all_roasts = roasts_soft + roasts_hard[:8]
-        roast_text = random.choice(all_roasts)
-        fire = "🔥🔥"
-
-    await ctx.send(f"{member.mention} {roast_text}\n{fire}")
+    roast_text = random.choice(roasts)
+    await ctx.send(f"{member.mention} {roast_text} 🔥")
 
 @bot.command(name="motivation")
 async def motivation(ctx):
-    motivaciones = [
-        "¡Sigue empujando! El pódium está a solo 3 restarts de distancia...",
-        "El que no choca, no avanza... o eso dicen los que chocan mucho",
-        "Tu próximo incident es solo práctica para el siguiente",
-        "El wall ride es una técnica válida... en mi mundo",
-        "Recuerda: el que llega último, llega con más historia que contar"
-    ]
-    frase = random.choice(motivaciones)
-    await ctx.send(f"💪 {frase}\n¡A darle, crack! (pero no al muro, eh)")
+    frases = ["¡Sigue empujando! El pódium está a solo 3 restarts...", "El wall ride es una técnica válida... en mi mundo"]
+    await ctx.send(f"💪 {random.choice(frases)}")
 
 @bot.command(name="lap")
 async def lap(ctx):
     tiempo = random.uniform(1.15, 3.59)
-    await ctx.send(f"¡Vuelta rápida imaginaria! ⏱️ {tiempo:.3f} segundos... en mis sueños, claro 🚀")
+    await ctx.send(f"¡Vuelta rápida imaginaria! ⏱️ {tiempo:.3f} s... en mis sueños 🚀")
 
 @bot.command(name="crash")
 async def crash(ctx):
-    await ctx.send("💥 **¡BOOM!** Acabo de besar el muro en la curva 1... otra vez 😭\n"
-                   "Mi coche ahora es arte abstracto en la grava. ¿Quién me recoge?")
+    await ctx.send("💥 ¡BOOM! Acabo de besar el muro... otra vez 😭")
+
+# Comandos iRacing (ahora reactivados)
+@bot.command(name="mystats")
+async def mystats(ctx):
+    if ir_client is None:
+        await ctx.send("No conectado a iRacing. Revisa logs.")
+        return
+
+    try:
+        profile = ir_client.member_profile()
+        cust_id = profile.get("cust_id")
+        name = profile.get("name", "Tu nombre")
+
+        stats = ir_client.member_chart_data(cust_id=cust_id, chart_type=1)
+
+        irating = stats.get("irating", [{}])[-1].get("value", "N/A")
+        sr = stats.get("safety_rating", [{}])[-1].get("value", "N/A")
+
+        embed = discord.Embed(title=f"Tus stats - {name}", color=0x00ff00)
+        embed.add_field(name="iRating", value=irating, inline=True)
+        embed.add_field(name="SR", value=f"{sr:.2f}", inline=True)
+        embed.add_field(name="Cust ID", value=cust_id, inline=True)
+        await ctx.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"Error en mystats: {str(e)}")
+        print(f"mystats error: {repr(e)}")
+        try:
+            if hasattr(ir_client, 'last_response') and ir_client.last_response:
+                print("Status:", ir_client.last_response.status_code)
+                print("Raw (500 chars):", ir_client.last_response.text[:500])
+        except:
+            print("No raw response disponible")
+
+@bot.command(name="profile")
+async def profile(ctx, cust_id: str):
+    if ir_client is None:
+        await ctx.send("API no disponible.")
+        return
+
+    try:
+        cust_id_int = int(cust_id)
+        profile = ir_client.member_profile(cust_id=cust_id_int)
+        name = profile.get("name", "Desconocido")
+
+        chart = ir_client.member_chart_data(cust_id=cust_id_int, chart_type=1)
+        ir = chart.get("irating", [{}])[-1].get("value", "N/A")
+        sr = chart.get("safety_rating", [{}])[-1].get("value", "N/A")
+
+        embed = discord.Embed(title=f"Perfil: {name}", color=0x3498db)
+        embed.add_field(name="iRating", value=ir)
+        embed.add_field(name="SR", value=f"{sr:.2f}")
+        embed.set_footer(text=f"Cust ID: {cust_id}")
+        await ctx.send(embed=embed)
+    except ValueError:
+        await ctx.send("Cust ID debe ser un número.")
+    except Exception as e:
+        await ctx.send(f"Error en profile: {str(e)}")
+        print(f"profile error: {repr(e)}")
+        try:
+            if hasattr(ir_client, 'last_response') and ir_client.last_response:
+                print("Status:", ir_client.last_response.status_code)
+                print("Raw (500 chars):", ir_client.last_response.text[:500])
+        except:
+            print("No raw response disponible")
 
 bot.run(TOKEN)
