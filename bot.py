@@ -6,13 +6,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuración
 TOKEN = os.getenv("DISCORD_TOKEN")
 PREFIX = os.getenv("PREFIX", "!")
 IR_USERNAME = os.getenv("IRACING_USERNAME")
 IR_PASSWORD = os.getenv("IRACING_PASSWORD")
-IR_CLIENT_ID = os.getenv("IRACING_CLIENT_ID")
-IR_CLIENT_SECRET = os.getenv("IRACING_CLIENT_SECRET")
+
+if TOKEN is None:
+    raise ValueError("DISCORD_TOKEN no definida. Agrégala en Railway o .env.")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -20,7 +20,6 @@ intents.members = True
 
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
-# Cliente iRacing (se autentica al iniciar)
 ir_client = None
 
 @bot.event
@@ -32,59 +31,86 @@ async def on_ready():
         ir_client = irDataClient(
             username=IR_USERNAME,
             password=IR_PASSWORD,
-            use_pydantic=True,
-            # Si ya tienes access_token guardado, puedes pasarlo aquí en vez de user/pass
-            # oauth_access_token="..."
+            use_pydantic=True
         )
         print("Conectado a iRacing Data API ✓")
+        
+        # Test de conexión simple (endpoint sin parámetros obligatorios)
+        try:
+            cars = ir_client.get_cars()
+            print(f"Test API OK: {len(cars)} coches cargados")
+        except Exception as test_e:
+            print(f"Test API falló: {test_e}")
+            if hasattr(ir_client, 'last_response') and ir_client.last_response:
+                print("Respuesta raw (primeros 500 chars):", ir_client.last_response.text[:500])
     except Exception as e:
         print(f"Error al conectar a iRacing: {e}")
+        print("Causas comunes: credenciales inválidas, 2FA activado, legacy auth no habilitado o cuenta no aprobada para Password Limited.")
+
+@bot.command(name="ping")
+async def ping(ctx):
+    await ctx.send("Pong! Bot online.")
+
+@bot.command(name="status")
+async def status(ctx):
+    status_text = "✅ Conectado a iRacing" if ir_client else "⚠️ Sin conexión a iRacing"
+    await ctx.send(f"Bot: {status_text} | Prefijo: {PREFIX}")
 
 @bot.command(name="mystats")
 async def my_stats(ctx):
     if ir_client is None:
-        await ctx.send("No conectado a iRacing. Intenta más tarde.")
+        await ctx.send("No conectado a iRacing. Revisa logs.")
         return
     
     try:
-        # Obtiene tu cust_id automáticamente (del usuario autenticado)
         profile = ir_client.member_profile()
         cust_id = profile.get("cust_id")
+        if cust_id is None:
+            raise ValueError("No cust_id en la respuesta del perfil.")
         
-        # Stats detalladas
-        stats = ir_client.member_chart_data(cust_id=cust_id, chart_type=1)  # 1 = iRating/SR
+        name = profile.get("name", "Tu nombre")
+        
+        stats = ir_client.member_chart_data(cust_id=cust_id, chart_type=1)
         
         irating = stats.get("irating", [{}])[-1].get("value", "N/A")
         safety_rating = stats.get("safety_rating", [{}])[-1].get("value", "N/A")
         
-        embed = discord.Embed(title="Tus stats iRacing", color=0x00ff00)
+        embed = discord.Embed(title=f"Tus stats iRacing - {name}", color=0x00ff00)
         embed.add_field(name="iRating", value=irating, inline=True)
         embed.add_field(name="Safety Rating", value=f"{safety_rating:.2f}", inline=True)
         embed.add_field(name="Cust ID", value=cust_id, inline=True)
+        embed.set_footer(text="Datos de iRacing API")
         
         await ctx.send(embed=embed)
     except Exception as e:
-        await ctx.send(f"Error: {str(e)}")
+        error_msg = f"Error al obtener stats: {str(e)} (tipo: {type(e).__name__})"
+        await ctx.send(error_msg)
+        print(f"Error mystats: {repr(e)}")
+        try:
+            if hasattr(ir_client, 'last_response') and ir_client.last_response:
+                print("Respuesta raw API (500 chars):", ir_client.last_response.text[:500])
+        except:
+            print("No se pudo obtener respuesta raw")
 
 @bot.command(name="profile")
-async def profile(ctx, member: discord.Member = None):
+async def profile(ctx, *, arg: str = None):
     if ir_client is None:
         return await ctx.send("API no disponible.")
     
+    if arg is None:
+        await ctx.send(f"Uso: {PREFIX}profile <cust_id>  Ej: {PREFIX}profile 123456")
+        return
+    
     try:
-        # Si mencionas a alguien, usa su nick como búsqueda (o guarda cust_id por usuario)
-        # Para simplicidad: pedimos cust_id manual
-        await ctx.send("Dime el cust_id del piloto (o usa !mystats si es tuyo):")
-        def check(m):
-            return m.author == ctx.author and m.channel == ctx.channel
-        
-        msg = await bot.wait_for("message", check=check, timeout=60)
-        cust_id = int(msg.content.strip())
-        
+        cust_id = int(arg.strip())
+    except ValueError:
+        await ctx.send("Cust ID debe ser un número.")
+        return
+    
+    try:
         profile = ir_client.member_profile(cust_id=cust_id)
         name = profile.get("name", "Desconocido")
         
-        # Stats básicas
         chart = ir_client.member_chart_data(cust_id=cust_id, chart_type=1)
         ir = chart.get("irating", [{}])[-1].get("value", "N/A")
         sr = chart.get("safety_rating", [{}])[-1].get("value", "N/A")
@@ -96,24 +122,7 @@ async def profile(ctx, member: discord.Member = None):
         
         await ctx.send(embed=embed)
     except Exception as e:
-        await ctx.send(f"Error al obtener perfil: {e}")
-
-@bot.command(name="series")
-async def series_list(ctx):
-    if ir_client is None:
-        return
-    
-    try:
-        seasons = ir_client.season_list()
-        active = [s for s in seasons if s.get("active")]
-        
-        embed = discord.Embed(title="Series Activas", color=0xe67e22)
-        for s in active[:10]:  # limita a 10 para no spamear
-            name = s.get("series_name", "N/A")
-            embed.add_field(name=name, value=f"ID: {s.get('season_id')}", inline=False)
-        
-        await ctx.send(embed=embed)
-    except Exception as e:
-        await ctx.send(f"Error: {e}")
+        await ctx.send(f"Error: {str(e)}")
+        print(f"Error profile: {repr(e)}")
 
 bot.run(TOKEN)
